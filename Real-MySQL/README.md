@@ -100,3 +100,8 @@ CREATE TABLE 'tb_dual' (
 ) ENGINE=InnoDB;
 ```
 
+# 2. 설치와 설정
+
+<details> <summary> 7. 예제 데이터 적재</summary>
+
+</details>
