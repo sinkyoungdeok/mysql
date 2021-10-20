@@ -128,3 +128,44 @@ $ SOURCE employees.sql
 
 
 </details>
+
+# 3. 아키텍처
+
+<details> <summary> 1. MySQL 아키텍처 </summary>
+
+</details>
+
+
+<details> <summary> 2. InnoDB 스토리지 엔진 아키텍처 </summary>
+
+</details>
+
+
+<details> <summary> 3. MyISAM 스토리지 엔진 아키텍처 </summary>
+
+</details>
+
+
+<details> <summary> 4. MEMORY 스토리지 엔진 아키텍처 </summary>
+
+</details>
+
+
+<details> <summary> 5. NDB 클러스터 스토리지 엔진 </summary>
+
+</details>
+
+
+<details> <summary> 6. TOKUDB 스토리지 엔진 </summary>
+
+</details>
+
+
+<details> <summary> 7. 전문 검색 엔진 </summary>
+
+</details>
+
+
+<details> <summary> 8. MySQL 로그 파일 </summary>
+
+</details>
