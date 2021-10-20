@@ -232,6 +232,114 @@ $ SOURCE employees.sql
     - 대표적으로 소트 버퍼나 조인 버퍼와 같은 공간이 그러하다.
   - 그리고 로컬 메모리 공간은 커넥션이 열려 있는 동안 계속 할당된 상태로 남아 있는 공간도 있고(커넥션 버퍼나 결과 버퍼) 그렇지 않고 쿼리를 실행하는 순간에만 할당했다가 다시 해제하는 공간(소트 버퍼나 조인 버퍼)도 있다.
 
+### 3.1.4 플러그인 스토리지 엔진 모델
+
+![image](https://user-images.githubusercontent.com/28394879/138054290-5636540f-f6d0-485f-88a7-ad994183e624.png)
+- MySQL의 독특한 구조 중 대표적인 것이 바로 플러그인 모델이다.
+  - 플러그인해서 사용할 수 있는 것이 스토리지 엔진만 가능한 것은 아니다.
+  - MySQL 5.1부터는 전문 검색 엔진을 위한 검색어 파서(인덱싱할 키워드를 분리해내는 작업)도 플러그인 형태로 개발해서 사용할 수 있다.
+  - MySQL은 이미 기본적으로 많은 스토리지 엔진을 가지고 있다.
+  - 하지만 이 세상의 수 많은 사용자의 요구조건을 만족시키기 위해 기본적으로 제공되는 스토리지 엔진 이외에 부가적인 기능을 더 제공하는 스토리지 엔진이 필요할 수 있으며, 이러한 요건을 기초로 다른 전문 개발 회사 또는 우리가 직접 스토리지 엔진을 제작하는 것도 가능하다.
+- MySQL에서 쿼리가 실행되는 과정을 크게 아래 그림과 같이 나눈다면 거의 대부분의 작업이 MySQL엔진에서 처리되고, 마지막 "데이터 읽기/쓰기" 작업만 스토리지 엔진에 의해 처리된다(만약 우리가 아주 새로운 용도의 스토리지 엔진을 만든다 하더라도 DBMS의 전체 기능이 아닌 일부분의 기능만 수행하는 엔진을 작성하게 된다는 의미다)
+  - ![image](https://user-images.githubusercontent.com/28394879/138054999-4ecbbfa7-6460-4fb7-bfbb-a5548c1bd666.png)
+- 위의 그림의 각 처리 영역에서 "데이터 읽기/쓰기" 작업은 거의 대부분 1건의 레코드 단위로 처리된다
+  - 예) 특정 인덱스의 레코드 1건 읽기 또는 마지막 읽었던 레코드의 다음 또는 이전 레코드 읽기
+  - 그리고 MySQL을 사용하다 보면 "핸들러(Handler)"라는 단어를 자주 접하게 될 것이다.
+  - 핸들러라는 단어는 MySQL 서버의 소스코드로부터 넘어온 표현인데, 이는 우리가 매일 타고 다니는 자동차로 비유해 보면 쉽게 이해할 수 있따.
+  - 사람이 핸들(운전대)을 이용해 자동차를 운전하듯이, 프로그래밍 언어에서는 어떤 기능을 호출하기 위해 사용하는 운전대와 같은 역할을 하는 객체를 핸들러(또는 핸들러 객체)라고 표현한다.
+  - MySQL 서버에서는 MySQL 엔진은 사람 역할을 하고, 각 스토리지 엔진은 자동차 역할을 하게 되는데, MySQL 엔진이 스토리지 엔진을 조정하기 위해 핸들러라는 것을 사용하게 된다.
+- MySQL에서 핸들러라는 것은 개념적인 내용이라서 완전히 이해하지 못하더라도 크게 문제되진 않지만 최소한 MySQL 엔진이 각 스토리지 엔진에게 데이터를 읽어오거나 저장하도록 명령하려면 핸들러를 꼭 통해야 한다는 점만 기억하자.
+  - 나중에 MySQL 서버의 상태 변수라는 것을 배우게 될 텐데, 이러한 상태 변수 가운데 "Handler_"로 시작하는 것(대표적으로 Handler_read_md_next 같은)이 많다는 사실을 알게 될 것이다.
+  - 그러면 "Handler_"로 시작하는 상태 변수는 "MySQL 엔진이 각 스토리지 엔진에게 보낸 명령의 횟수를 의미하는 변수"라고 이해하면 된다.
+  - MySQL에서 MyISAM이나 InnoDB와 같이 다른 스토리지 엔진을 사용하는 테이블에 대해 쿼리를 실행하더라도 MySQL의 처리 내용은 대부분 동일하며, 단순히 위의 그림의 마지막 단계인 "데이터 읽기/쓰기" 영역의 처리만 차이가 있을 뿐이다.
+  - 실질적인 GROUP BY나 ORDER BY 등 많은 복잡한 처리는 스토리지 엔진 영역이 아니라 MySQL 엔진의 처리 영역인 "쿼리 실행기"에서 처리된다.
+- 그렇다면 MyISAM이나 InnoDB 스토리지 엔진 가운데 뭘 사용하든 별 차이가 없는 것 아닌가, 라고 생각할 수 있지만 "그렇진 않다."
+  - 여기서 설명한 내용은 아주 간략하게 언급한 것일 뿐이고, 단순히 보이는 "데이터 읽기/쓰기" 작업 처리 방식이 얼마나 달라질 수 있는가를  뒷 챕터들을 통해 느끼게 될 것이다.
+  - 여기서 중요한 내용은 '하나의 쿼리 작업은 여러 하위 작업으로 나뉘는데, 각 하위 작업이 MySQL 엔진 영역에서 처리되는지 아니면 스토리지 엔진 영역에서 처리되는지 구분할 줄 알아야 한다.'는 점이다.
+  - 사실 여기서는 스토리지 엔진의 개념을 설명하기 위한 것도 있지만 각 단위 작업을 누가 처리하고 "MySQL 엔진 영역"과 "스토리지 엔진 영역"의 차이를 설명하는데 목적이 있다.
+- 이제 설치돼 있는 MySQL 서버(mysqld)에서 지원되는 스토리지 엔진이 어떤 것이 있는지 확인해보자.
+  ```
+  mysql> show ENGINES;
+    +--------------------+---------+----------------------------------------------------------------+--------------+------+------------+
+    | Engine             | Support | Comment                                                        | Transactions | XA   | Savepoints |
+    +--------------------+---------+----------------------------------------------------------------+--------------+------+------------+
+    | InnoDB             | DEFAULT | Supports transactions, row-level locking, and foreign keys     | YES          | YES  | YES        |
+    | MRG_MYISAM         | YES     | Collection of identical MyISAM tables                          | NO           | NO   | NO         |
+    | MEMORY             | YES     | Hash based, stored in memory, useful for temporary tables      | NO           | NO   | NO         |
+    | BLACKHOLE          | YES     | /dev/null storage engine (anything you write to it disappears) | NO           | NO   | NO         |
+    | MyISAM             | YES     | MyISAM storage engine                                          | NO           | NO   | NO         |
+    | CSV                | YES     | CSV storage engine                                             | NO           | NO   | NO         |
+    | ARCHIVE            | YES     | Archive storage engine                                         | NO           | NO   | NO         |
+    | PERFORMANCE_SCHEMA | YES     | Performance Schema                                             | NO           | NO   | NO         |
+    | FEDERATED          | NO      | Federated MySQL storage engine                                 | NULL         | NULL | NULL       |
+    +--------------------+---------+----------------------------------------------------------------+--------------+------+------------+
+    9 rows in set (0.00 sec)
+  ``` 
+- Support 칼럼에 표시될 수 있는 값은 아래 4가지다.
+  - YES: MySQL 서버(mysqld)에 해당 스토리지 엔진이 포함돼 있고, 사용 가능으로 활성화된 상태임
+  - DEFAULT: "YES"와 동일한 상태이지만 필수 스토리지 엔진임을 의미함(즉 이 스토리지 엔진이 없으면 MySQL이 시작되지 않을수도 있음을 의미한다)
+  - NO: 현재 MySQL 서버(mysqld)에 포함되지 않았음을 의미함
+  - DISABLED: 현재 MySQL 서버(mysqld)에는 포함됐지만 파라미터에 의해 비활성화된 상태임
+- MySQL 서버(mysqld)에 포함되지 않은 스토리지 엔진(Support 칼럼이 NO로 표시되는)을 사용하려면 MySQL 서버를 다시 빌드(컴파일)해야 한다.
+  - 하지만 우리의 MySQL 서버가 적절히 준비만 돼 있다면 플러그인 형태로 빌드된 스토리지 엔진 라이브러리를 내려받아 끼워 넣기만 하면 사용할 수 있다.
+  - 또한 플러그인 형태의 스토리지 엔진은 손쉽게 업그레이드할 수 있다.
+  - 스토리지 엔진뿐 아니라 모든 플러그인의 내용은 다음과 같이 확인할 수 있다.
+  - 이 명령으로 스토리지 엔진뿐 아니라 전문 검색용 파서와 같은 플러그인도 (만약 설치돼 있다면) 확인할 수 있다.
+  ```
+  mysql> show plugins;
+    +----------------------------+----------+--------------------+---------+---------+
+    | Name                       | Status   | Type               | Library | License |
+    +----------------------------+----------+--------------------+---------+---------+
+    | binlog                     | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | mysql_native_password      | ACTIVE   | AUTHENTICATION     | NULL    | GPL     |
+    | sha256_password            | ACTIVE   | AUTHENTICATION     | NULL    | GPL     |
+    | CSV                        | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | MEMORY                     | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | InnoDB                     | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | INNODB_TRX                 | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_LOCKS               | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_LOCK_WAITS          | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_CMP                 | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_CMP_RESET           | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_CMPMEM              | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_CMPMEM_RESET        | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_CMP_PER_INDEX       | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_CMP_PER_INDEX_RESET | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_BUFFER_PAGE         | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_BUFFER_PAGE_LRU     | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_BUFFER_POOL_STATS   | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_TEMP_TABLE_INFO     | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_METRICS             | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_FT_DEFAULT_STOPWORD | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_FT_DELETED          | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_FT_BEING_DELETED    | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_FT_CONFIG           | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_FT_INDEX_CACHE      | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_FT_INDEX_TABLE      | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_TABLES          | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_TABLESTATS      | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_INDEXES         | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_COLUMNS         | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_FIELDS          | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_FOREIGN         | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_FOREIGN_COLS    | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_TABLESPACES     | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_DATAFILES       | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | INNODB_SYS_VIRTUAL         | ACTIVE   | INFORMATION SCHEMA | NULL    | GPL     |
+    | MyISAM                     | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | MRG_MYISAM                 | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | PERFORMANCE_SCHEMA         | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | ARCHIVE                    | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | BLACKHOLE                  | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | FEDERATED                  | DISABLED | STORAGE ENGINE     | NULL    | GPL     |
+    | partition                  | ACTIVE   | STORAGE ENGINE     | NULL    | GPL     |
+    | ngram                      | ACTIVE   | FTPARSER           | NULL    | GPL     |
+    +----------------------------+----------+--------------------+---------+---------+
+    44 rows in set (0.00 sec)
+  ``` 
+
+
+
 </details>
 
 
