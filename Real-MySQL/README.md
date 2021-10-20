@@ -117,8 +117,8 @@ mysql:5.7 --character-set-server=utf8 --collation-server=utf8_unicode_ci
 $ docker exec -it mysql bin/bash
 
 $ apt-get update
-$ apt-get wget
-$ apt-get bzip2
+$ apt-get install wget
+$ apt-get install bzip2
 $ wget https://launchpad.net/test-db/employees-db-1/1.0.6/+download/employees_db-full-1.0.6.tar.bz2
 $ tar jxvf employees_db-full-1.0.6.tar.bz2
 $ cd employees_db
